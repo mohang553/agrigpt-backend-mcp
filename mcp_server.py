@@ -154,6 +154,31 @@ class ToolCallRequest(BaseModel):
 app = FastAPI(title="Agricultural MCP Server")
 
 
+@app.get("/")
+async def root():
+    """Root endpoint - for health checks and info"""
+    return {
+        "status": "healthy",
+        "service": "Agricultural MCP Server",
+        "version": "1.0.0",
+        "endpoints": {
+            "health": "GET /health",
+            "getToolsList": "POST /getToolsList",
+            "callTool": "POST /callTool",
+            "docs": "GET /docs (Swagger UI)"
+        }
+    }
+
+
+@app.get("/health")
+async def health_check():
+    """Health check endpoint"""
+    return {
+        "status": "healthy",
+        "service": "Agricultural MCP Server"
+    }
+
+
 @app.post("/getToolsList")
 async def list_tools():
     """List available tools"""
@@ -244,8 +269,10 @@ if __name__ == "__main__":
     print(f"   Government Schemes RAG: {GOVT_SCHEMES_RAG_URL}")
     print(f"   Timeout: {RAG_TIMEOUT} seconds")
     print("\n📋 Available Endpoints:")
-    print("   POST /tools/list  - List available tools")
-    print("   POST /tools/call  - Execute a tool")
+    print("   GET  /              - Root info endpoint")
+    print("   GET  /health        - Health check")
+    print("   POST /getToolsList  - List available tools")
+    print("   POST /callTool      - Execute a tool")
     print("\n" + "=" * 70 + "\n")
     
-    uvicorn.run(app, host="0.0.0.0", port=8005)
+    uvicorn.run(app, host="0.0.0.0", port=8000)
