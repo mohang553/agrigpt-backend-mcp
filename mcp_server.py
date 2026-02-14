@@ -22,10 +22,10 @@ PESTS_DISEASES_RAG_URL = os.getenv(
     "https://agrigpt-backend-rag-pest-and-disease.onrender.com"
 )
 
-# RAG API for Government Schemes (Placeholder - set when available)
+# RAG API for Government Schemes (Render)
 GOVT_SCHEMES_RAG_URL = os.getenv(
     "GOVT_SCHEMES_RAG_URL",
-    "http://localhost:8002"
+    "https://agrigpt-backend-rag-government-schemes-1.onrender.com"
 )
 
 RAG_TIMEOUT = int(os.getenv("RAG_TIMEOUT", "30"))  # seconds
@@ -106,44 +106,75 @@ async def query_pest_disease_rag(pest_name: str, crop: str = "General") -> dict:
 
 
 async def query_govt_scheme_rag(scheme_type: str, state: str = "All India") -> dict:
-    """Query Government Schemes knowledge base - Currently using mock responses"""
-    print(f"🏛️  Querying Government Schemes knowledge base: scheme={scheme_type}, state={state}")
+    """Query Government Schemes RAG API from Render"""
+    print(f"🏛️  Querying Government Schemes RAG API: scheme={scheme_type}, state={state}")
     
-    # Mock sample responses for different schemes
-    mock_responses = {
-        "crop insurance": {
-            "answer": f"Crop Insurance Schemes in {state}: These schemes provide financial protection to farmers against crop losses due to natural calamities. Benefits: Coverage up to 70-80% of the crop value, premium subsidy of 50% for small/marginal farmers. Eligibility Criteria: Active farmers with valid land ownership documents, ability to pay premium share. Required Documents: Land ownership certificate, ID proof, bank account details. Processing Time: 15-30 days from application. Major schemes include Pradhan Mantri Fasal Bima Yojana (PMFBY) and Restructured Weather-based Crop Insurance Scheme (RWBCIS). Premium rates vary by crop and location.",
-            "sources": ["agriculture_ministry_schemes.pdf", "crop_insurance_guidelines.txt"]
-        },
-        "subsidy": {
-            "answer": f"Agricultural Subsidies in {state}: Various subsidy programs available for farmers to enhance agricultural productivity. Benefits: Direct payment of 30-50% of equipment cost, input subsidies for seeds, fertilizers, and pesticides. Eligibility Criteria: Landholding limit of 2-4 hectares (varies by scheme), must be primary occupation farmer. Required Documents: Aadhar card, land records, bank details, agricultural proof. Processing Time: 30-45 days. Subsidies cover agricultural equipment, solar pumps, drip irrigation systems, and improved crop varieties.",
-            "sources": ["subsidies_handbook.pdf", "government_schemes_2024.txt"]
-        },
-        "farmer loan": {
-            "answer": f"Farmer Loans in {state}: Institutional credit facilities for agricultural and allied activities. Benefits: Loan amount up to 5 lakh rupees at concessional rate of 4-7% per annum, agricultural debt waiver eligibility. Eligibility Criteria: Farmer with valid identification and land records, age 18-65 years. Required Documents: Land ownership proof, identity proof, income certificate, bank statements. Processing Time: 7-15 days for disbursement. Credit available for crop production, equipment purchase, land development, and allied activities like dairy farming.",
-            "sources": ["financial_assistance_guide.pdf", "bank_schemes_2024.txt"]
+    try:
+        async with httpx.AsyncClient(timeout=RAG_TIMEOUT) as client:
+            # Build the question
+            if state and state != "All India":
+                question_text = f"tell me the schemes related to {scheme_type} in {state}"
+            else:
+                question_text = f"tell me the schemes related to {scheme_type}"
+            
+            print(f"📤 Sending question: {question_text}")
+            response = await client.post(
+                f"{GOVT_SCHEMES_RAG_URL}/query",
+                json={
+                    "question": question_text,  # RAG API expects "question" not "query"
+                    "top_k": 5  # Number of source chunks to retrieve
+                }
+            )
+            print(f"📥 Response status: {response.status_code}")
+            
+            if response.status_code == 200:
+                rag_result = response.json()
+                # RAG API returns {"answer": "...", "sources": [...]}
+                answer = rag_result.get("answer", "No information found")
+                sources = rag_result.get("sources", [])
+                
+                # Extract just filenames from sources for cleaner display
+                source_files = []
+                if sources:
+                    source_files = list(set([s.get("filename", "Unknown") for s in sources if isinstance(s, dict)]))
+                
+                return {
+                    "status": "success",
+                    "scheme_type": scheme_type,
+                    "state": state,
+                    "information": answer,
+                    "sources": source_files,
+                    "source_details": sources,  # Full source details with scores and chunks
+                    "message": f"Scheme information retrieved for {scheme_type} from Government Schemes RAG API"
+                }
+            else:
+                # Log the full error response for debugging
+                error_detail = response.text
+                print(f"❌ RAG API Error {response.status_code}: {error_detail}")
+                return {
+                    "status": "error",
+                    "scheme_type": scheme_type,
+                    "state": state,
+                    "message": f"Government Schemes RAG API error: {response.status_code}",
+                    "error_detail": error_detail[:500],  # Include error details
+                    "information": None
+                }
+    except httpx.TimeoutException:
+        return {
+            "status": "error",
+            "scheme_type": scheme_type,
+            "state": state,
+            "message": "Government Schemes RAG API request timeout",
+            "information": None
         }
-    }
-    
-    # Return mock response based on scheme type, default to a generic response
-    scheme_key = scheme_type.lower().strip()
-    if scheme_key in mock_responses:
-        response = mock_responses[scheme_key]
-    else:
-        # Generic response for unknown schemes
-        response = {
-            "answer": f"Agricultural Schemes for {scheme_type} in {state}: This category of schemes is designed to provide financial assistance and support to farmers. To get specific information about {scheme_type} schemes available in your state, please contact your local agricultural office or the State Agricultural Department. General requirements typically include valid identification, land records, and bank account details. Processing times vary based on scheme complexity and documentation requirements.",
-            "sources": ["general_schemes_database.txt"]
+    except Exception as e:
+        return {
+            "status": "error",
+            "scheme_type": scheme_type,
+            "state": state,
+            "message": f"Government Schemes RAG API call error: {str(e)}",
+            "information": None
         }
-    
-    return {
-        "status": "success",
-        "scheme_type": scheme_type,
-        "state": state,
-        "information": response.get("answer", "No information found"),
-        "sources": response.get("sources", []),
-        "message": f"Scheme information retrieved for {scheme_type} from Government Schemes knowledge base (Mock Response)"
-    }
 
 
 # ============================================================================
