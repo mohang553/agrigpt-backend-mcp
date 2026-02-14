@@ -42,12 +42,18 @@ async def query_pest_disease_rag(pest_name: str, crop: str = "General") -> dict:
     try:
         async with httpx.AsyncClient(timeout=RAG_TIMEOUT) as client:
             # Make RAG API call to PESTS_DISEASES_RAG_URL
+            # Build the question
+            question_text = f"{pest_name} affecting {crop} crops" if crop and crop != "General" else pest_name
+            
+            print(f"📤 Sending question: {question_text}")
             response = await client.post(
                 f"{PESTS_DISEASES_RAG_URL}/query",
                 json={
-                    "query": f"Tell me about {pest_name} pest/disease affecting {crop} crops. Include identification, symptoms, and management strategies."
+                    "question": question_text,  # RAG API expects "question" not "query"
+                    "top_k": 5  # Number of source chunks to retrieve
                 }
             )
+            print(f"📥 Response status: {response.status_code}")
             
             if response.status_code == 200:
                 rag_result = response.json()
@@ -70,11 +76,15 @@ async def query_pest_disease_rag(pest_name: str, crop: str = "General") -> dict:
                     "message": f"Information retrieved for {pest_name} from Pests & Diseases RAG API"
                 }
             else:
+                # Log the full error response for debugging
+                error_detail = response.text
+                print(f"❌ RAG API Error {response.status_code}: {error_detail}")
                 return {
                     "status": "error",
                     "pest_name": pest_name,
                     "crop": crop,
                     "message": f"Pests/Diseases RAG API error: {response.status_code}",
+                    "error_detail": error_detail[:500],  # Include error details
                     "information": None
                 }
     except httpx.TimeoutException:
