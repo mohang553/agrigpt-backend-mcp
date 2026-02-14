@@ -2,6 +2,7 @@
 """
 MCP Server for Agricultural Tools (Pests/Diseases and Government Schemes)
 FastAPI Implementation - HTTP Transport with 2 Separate RAG API Endpoints
+
 """
 import json
 from typing import Dict, Any, List
@@ -15,13 +16,13 @@ import os
 # RAG API CONFIGURATION - 2 SEPARATE ENDPOINTS
 # ============================================================================
 
-# RAG API for Pests and Diseases
+# RAG API for Pests and Diseases (Render)
 PESTS_DISEASES_RAG_URL = os.getenv(
     "PESTS_DISEASES_RAG_URL",
-    "http://localhost:8001"
+    "https://agrigpt-backend-rag-pest-and-disease.onrender.com"
 )
 
-# RAG API for Government Schemes
+# RAG API for Government Schemes (Placeholder - set when available)
 GOVT_SCHEMES_RAG_URL = os.getenv(
     "GOVT_SCHEMES_RAG_URL",
     "http://localhost:8002"
@@ -35,44 +36,53 @@ RAG_TIMEOUT = int(os.getenv("RAG_TIMEOUT", "30"))  # seconds
 # ============================================================================
 
 async def query_pest_disease_rag(pest_name: str, crop: str = "General") -> dict:
-    """Query Pests and Diseases knowledge base - Currently using mock responses"""
-    print(f"🌾 Querying Pests/Diseases knowledge base: pest={pest_name}, crop={crop}")
+    """Query Pests and Diseases RAG API from Render"""
+    print(f"🌾 Querying Pests/Diseases RAG API: pest={pest_name}, crop={crop}")
     
-    # Mock sample responses for different pests
-    mock_responses = {
-        "fall armyworm": {
-            "answer": f"Fall Armyworm is a highly destructive pest that affects {crop} crops. It is characterized by its ability to feed on over 300 plant species. Identification: Young larvae are greenish with dark stripes, while older larvae are brownish with a distinctive inverted 'Y' marking on the head. Symptoms: Irregular holes in leaves, damaged tassels, and entry holes in ears with frass (insect droppings). Management Strategies: 1) Biological control using parasitoids and predators 2) Insecticidal applications at early larval stages 3) Crop rotation practices 4) Removal of volunteer plants 5) Monitoring using pheromone traps. Recommended insecticides: Spinosad, Bt (Bacillus thuringiensis), and synthetic pyrethroids.",
-            "sources": ["FAO_pest_database.pdf", "agricultural_extension_2024.txt", "integrated_pest_management_guide.pdf"]
-        },
-        "powdery mildew": {
-            "answer": f"Powdery Mildew is a fungal disease affecting {crop} crops. This disease is caused by various Erysiphaceae family fungi. Identification: White, powdery coating on leaves, stems, and sometimes fruit. Symptoms appear first on lower leaves and spread upward. Affects plant photosynthesis and reduces yield. Management Strategies: 1) Ensure good air circulation through pruning 2) Apply sulfur dust or wettable sulfur sprays 3) Use fungicides like potassium bicarbonate 4) Avoid overhead irrigation 5) Plant resistant varieties 6) Maintain proper spacing between plants. Early detection and treatment are crucial for effective control.",
-            "sources": ["plant_pathology_manual.pdf", "fungal_disease_reference.txt"]
-        },
-        "leaf spot": {
-            "answer": f"Leaf Spot is a common fungal disease affecting {crop} crops, caused by various fungi species. Identification: Brown or dark spots with yellow halos on leaves. Spots may have concentric rings in some cases. Symptoms: Progressive leaf yellowing and defoliation. Management Strategies: 1) Remove and destroy infected leaves 2) Apply copper-based fungicides 3) Avoid wet foliage during irrigation 4) Improve air circulation 5) Crop rotation for 2-3 years 6) Use disease-resistant varieties. Regular monitoring and early intervention prevent severe crop damage.",
-            "sources": ["disease_management_guide.pdf", "crop_protection_handbook.txt"]
+    try:
+        async with httpx.AsyncClient(timeout=RAG_TIMEOUT) as client:
+            # Make RAG API call to PESTS_DISEASES_RAG_URL
+            response = await client.post(
+                f"{PESTS_DISEASES_RAG_URL}/query",
+                json={
+                    "query": f"Tell me about {pest_name} pest/disease affecting {crop} crops. Include identification, symptoms, and management strategies."
+                }
+            )
+            
+            if response.status_code == 200:
+                rag_result = response.json()
+                return {
+                    "status": "success",
+                    "pest_name": pest_name,
+                    "crop": crop,
+                    "information": rag_result.get("result", rag_result.get("answer", "No information found")),
+                    "sources": rag_result.get("sources", []),
+                    "message": f"Information retrieved for {pest_name} from Pests & Diseases RAG API"
+                }
+            else:
+                return {
+                    "status": "error",
+                    "pest_name": pest_name,
+                    "crop": crop,
+                    "message": f"Pests/Diseases RAG API error: {response.status_code}",
+                    "information": None
+                }
+    except httpx.TimeoutException:
+        return {
+            "status": "error",
+            "pest_name": pest_name,
+            "crop": crop,
+            "message": "Pests/Diseases RAG API request timeout",
+            "information": None
         }
-    }
-    
-    # Return mock response based on pest name, default to a generic response
-    pest_key = pest_name.lower().strip()
-    if pest_key in mock_responses:
-        response = mock_responses[pest_key]
-    else:
-        # Generic response for unknown pests
-        response = {
-            "answer": f"{pest_name} is a pest/disease that can affect {crop} crops. This is sample information returned from the knowledge base. To get detailed information about {pest_name}, please ensure the RAG API endpoints are configured. For now, this is a placeholder response. Management recommendations include monitoring the crop regularly, maintaining good agricultural practices, and consulting with local agricultural extension services.",
-            "sources": ["sample_knowledge_base.txt"]
+    except Exception as e:
+        return {
+            "status": "error",
+            "pest_name": pest_name,
+            "crop": crop,
+            "message": f"Pests/Diseases RAG API call error: {str(e)}",
+            "information": None
         }
-    
-    return {
-        "status": "success",
-        "pest_name": pest_name,
-        "crop": crop,
-        "information": response.get("answer", "No information found"),
-        "sources": response.get("sources", []),
-        "message": f"Information retrieved for {pest_name} from Pests & Diseases knowledge base (Mock Response)"
-    }
 
 
 async def query_govt_scheme_rag(scheme_type: str, state: str = "All India") -> dict:
