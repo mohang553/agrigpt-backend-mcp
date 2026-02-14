@@ -51,12 +51,22 @@ async def query_pest_disease_rag(pest_name: str, crop: str = "General") -> dict:
             
             if response.status_code == 200:
                 rag_result = response.json()
+                # RAG API returns {"answer": "...", "sources": [...]}
+                answer = rag_result.get("answer", "No information found")
+                sources = rag_result.get("sources", [])
+                
+                # Extract just filenames from sources for cleaner display
+                source_files = []
+                if sources:
+                    source_files = list(set([s.get("filename", "Unknown") for s in sources if isinstance(s, dict)]))
+                
                 return {
                     "status": "success",
                     "pest_name": pest_name,
                     "crop": crop,
-                    "information": rag_result.get("result", rag_result.get("answer", "No information found")),
-                    "sources": rag_result.get("sources", []),
+                    "information": answer,
+                    "sources": source_files,
+                    "source_details": sources,  # Full source details with scores and chunks
                     "message": f"Information retrieved for {pest_name} from Pests & Diseases RAG API"
                 }
             else:
