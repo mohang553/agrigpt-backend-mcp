@@ -1,7 +1,10 @@
 #!/usr/bin/env python3
 """
 MCP Server for Agricultural Tools (Pests/Diseases and Government Schemes)
+Proper MCP Implementation - Using Official MCP SDK v1.26.0 with HTTP Transport
 
+This uses the official mcp package from Anthropic with HTTP transport,
+keeping all original RAG API logic intact.
 """
 
 import json
@@ -46,7 +49,7 @@ logger.info(f"Government Schemes RAG URL: {GOVT_SCHEMES_RAG_URL}")
 logger.info(f"RAG Timeout: {RAG_TIMEOUT} seconds")
 
 # ============================================================================
-# TOOL IMPLEMENTATIONS 
+# TOOL IMPLEMENTATIONS (SAME AS ORIGINAL)
 # ============================================================================
 
 async def query_pest_disease_rag(pest_name: str, crop: str = "General") -> dict:
@@ -191,7 +194,7 @@ async def query_govt_scheme_rag(scheme_type: str, state: str = "All India") -> d
 
 
 # ============================================================================
-# MCP SERVER SETUP
+# MCP SERVER SETUP (MCP SDK v1.26.0)
 # ============================================================================
 
 # Create the MCP server instance
@@ -199,7 +202,7 @@ server = Server("agricultural-mcp-server")
 
 
 @server.list_tools()
-async def list_tools():
+async def list_tools() -> list[Tool]:
     """List available tools"""
     logger.info("📋 Listing available tools")
     return [
@@ -243,7 +246,7 @@ async def list_tools():
 
 
 @server.call_tool()
-async def call_tool(name: str, arguments: dict):
+async def call_tool(name: str, arguments: dict) -> list[TextContent]:
     """Execute a tool"""
     logger.info(f"🔨 Calling tool: {name} with arguments: {arguments}")
     
@@ -286,7 +289,7 @@ import uvicorn
 
 app = FastAPI(
     title="Agricultural MCP Server",
-    description="Proper MCP Server with Official SDK - HTTP Transport"
+    description="Proper MCP Server with Official SDK v1.26.0 - HTTP Transport"
 )
 
 
@@ -295,7 +298,7 @@ async def root():
     """Root endpoint - for health checks and info"""
     return {
         "status": "healthy",
-        "service": "Agricultural MCP Server (Official MCP SDK)",
+        "service": "Agricultural MCP Server (Official MCP SDK v1.26.0)",
         "version": "1.0.0",
         "transport": "HTTP",
         "info": "This is a proper MCP server using the official mcp SDK. Send JSON-RPC 2.0 requests to the root POST endpoint."
@@ -463,7 +466,7 @@ async def handle_json_rpc(request: Request):
 
 if __name__ == "__main__":
     print("\n" + "=" * 80)
-    print("🚀 Agricultural MCP Server - Official MCP SDK Implementation")
+    print("🚀 Agricultural MCP Server - Official MCP SDK v1.26.0 Implementation")
     print("=" * 80)
     print("\n📍 RAG API Configuration:")
     print(f"   Pests & Diseases RAG: {PESTS_DISEASES_RAG_URL}")
@@ -471,16 +474,6 @@ if __name__ == "__main__":
     print(f"   Timeout: {RAG_TIMEOUT} seconds")
     print("\n📋 MCP Server Info:")
     print("   Server Name: agricultural-mcp-server")
-    print("   Server Version: 1.0.0")
-    print("   MCP Protocol Version: 2024-11-05")
-    print("   Using: Official mcp SDK from Anthropic")
-    print("   Transport: HTTP")
-    print("\n📡 Main Endpoint:")
-    print("   POST / - JSON-RPC 2.0 endpoint for all MCP methods")
-    print("\n🔧 Supported MCP Methods:")
-    print("   - initialize - Initialize the MCP server connection")
-    print("   - tools/list - List available tools")
-    print("   - tools/call - Call a tool with arguments")
     print("\n✅ Available Tools:")
     print("   1. pests_and_diseases - Query pest and disease information")
     print("   2. govt_schemes - Query government schemes information")
