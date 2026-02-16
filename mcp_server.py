@@ -176,20 +176,49 @@ async def health_check():
 
 @app.post("/getToolsList")
 async def list_tools():
-
+    """Return tools with inputSchema for agent tool discovery"""
     return {
         "tools": [
             {
                 "name": "pests_and_diseases",
-                "description": "Query pest and disease information"
+                "description": "Query agricultural pests and diseases knowledge base. Returns detailed information about specific pests/diseases affecting crops.",
+                "inputSchema": {
+                    "type": "object",
+                    "properties": {
+                        "pest_name": {
+                            "type": "string",
+                            "description": "Name of the pest or disease (e.g., 'Citrus Leafminer')"
+                        },
+                        "crop": {
+                            "type": "string",
+                            "description": "Target crop type (e.g., 'citrus', 'wheat'). Default: 'General'",
+                            "default": "General"
+                        }
+                    },
+                    "required": ["pest_name"]
+                }
             },
             {
                 "name": "govt_schemes",
-                "description": "Query government schemes"
+                "description": "Query agricultural government schemes. Returns scheme details, eligibility, and benefits.",
+                "inputSchema": {
+                    "type": "object",
+                    "properties": {
+                        "scheme_type": {
+                            "type": "string",
+                            "description": "Type of scheme (e.g., 'crop insurance', 'subsidy', 'irrigation')"
+                        },
+                        "state": {
+                            "type": "string",
+                            "description": "Target state in India (e.g., 'Andhra Pradesh'). Default: 'All India'",
+                            "default": "All India"
+                        }
+                    },
+                    "required": ["scheme_type"]
+                }
             }
         ]
     }
-
 
 @app.post("/callTool")
 async def call_tool(request: ToolCallRequest):
