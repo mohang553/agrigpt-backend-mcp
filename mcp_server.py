@@ -45,7 +45,7 @@ mcp = FastMCP(
 )
 
 # Mount MCP endpoint
-app.mount("/mcp", mcp.app)
+app.mount("/mcp", mcp)
 
 # ============================================================================
 # TOOL IMPLEMENTATIONS (UNCHANGED LOGIC)
