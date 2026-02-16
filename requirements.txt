@@ -2,5 +2,5 @@ fastapi
 uvicorn
 httpx
 pydantic
-mcp==1.26.0
-anyio==4.5.0
+fastmcp
+python-dotenv
