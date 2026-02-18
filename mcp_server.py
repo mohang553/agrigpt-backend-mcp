@@ -1,17 +1,16 @@
 #!/usr/bin/env python3
 """
 Agricultural MCP Server
-
+Transport: Streamable HTTP only
 """
 
-import json
-from typing import Dict, Any
-from fastapi import FastAPI, HTTPException
-from pydantic import BaseModel
-import uvicorn
-import httpx
 import os
+import httpx
+from typing import Dict, Any
+from fastapi import HTTPException
+from pydantic import BaseModel
 from fastmcp import FastMCP
+import uvicorn
 
 # ============================================================================
 # RAG API CONFIGURATION
@@ -30,50 +29,33 @@ GOVT_SCHEMES_RAG_URL = os.getenv(
 RAG_TIMEOUT = int(os.getenv("RAG_TIMEOUT", "30"))
 
 # ============================================================================
-# FASTAPI APP
-# ============================================================================
-
-app = FastAPI(title="Agricultural MCP Server")
-
-# ============================================================================
-# MCP INITIALIZATION
+# MCP INITIALIZATION (Streamable HTTP)
 # ============================================================================
 
 mcp = FastMCP(
     name="Agricultural Tools MCP Server",
-    description="Provides agricultural pest/disease and government scheme information"
+    description="Provides agricultural pest/disease and government scheme information",
+    stateless_http=True,  # Streamable HTTP — each request is independent
 )
-
-# Mount MCP endpoint
-app.mount("/mcp", mcp)
 
 # ============================================================================
 # TOOL IMPLEMENTATIONS (UNCHANGED LOGIC)
 # ============================================================================
 
 async def query_pest_disease_rag(pest_name: str, crop: str = "General") -> dict:
-
     try:
         async with httpx.AsyncClient(timeout=RAG_TIMEOUT) as client:
-
             question_text = (
                 f"{pest_name} affecting {crop} crops"
                 if crop and crop != "General"
                 else pest_name
             )
-
             response = await client.post(
                 f"{PESTS_DISEASES_RAG_URL}/query",
-                json={
-                    "question": question_text,
-                    "top_k": 5
-                }
+                json={"question": question_text, "top_k": 5}
             )
-
             if response.status_code == 200:
-
                 rag_result = response.json()
-
                 return {
                     "status": "success",
                     "pest_name": pest_name,
@@ -81,36 +63,25 @@ async def query_pest_disease_rag(pest_name: str, crop: str = "General") -> dict:
                     "information": rag_result.get("answer"),
                     "sources": rag_result.get("sources", [])
                 }
-
             return {"status": "error"}
-
     except Exception as e:
         return {"status": "error", "message": str(e)}
 
 
 async def query_govt_scheme_rag(scheme_type: str, state: str = "All India") -> dict:
-
     try:
         async with httpx.AsyncClient(timeout=RAG_TIMEOUT) as client:
-
             question_text = (
                 f"tell me the schemes related to {scheme_type} in {state}"
                 if state != "All India"
                 else f"tell me the schemes related to {scheme_type}"
             )
-
             response = await client.post(
                 f"{GOVT_SCHEMES_RAG_URL}/query",
-                json={
-                    "question": question_text,
-                    "top_k": 5
-                }
+                json={"question": question_text, "top_k": 5}
             )
-
             if response.status_code == 200:
-
                 rag_result = response.json()
-
                 return {
                     "status": "success",
                     "scheme_type": scheme_type,
@@ -118,42 +89,33 @@ async def query_govt_scheme_rag(scheme_type: str, state: str = "All India") -> d
                     "information": rag_result.get("answer"),
                     "sources": rag_result.get("sources", [])
                 }
-
             return {"status": "error"}
-
     except Exception as e:
         return {"status": "error", "message": str(e)}
 
 
 # ============================================================================
-# MCP TOOL REGISTRATION (NEW)
+# MCP TOOL REGISTRATION
 # ============================================================================
 
 @mcp.tool()
-async def pests_and_diseases(
-    pest_name: str,
-    crop: str = "General"
-) -> dict:
-    """
-    Query agricultural pests and diseases knowledge base
-    """
+async def pests_and_diseases(pest_name: str, crop: str = "General") -> dict:
+    """Query agricultural pests and diseases knowledge base"""
     return await query_pest_disease_rag(pest_name, crop)
 
 
 @mcp.tool()
-async def govt_schemes(
-    scheme_type: str,
-    state: str = "All India"
-) -> dict:
-    """
-    Query agricultural government schemes knowledge base
-    """
+async def govt_schemes(scheme_type: str, state: str = "All India") -> dict:
+    """Query agricultural government schemes knowledge base"""
     return await query_govt_scheme_rag(scheme_type, state)
 
 
 # ============================================================================
-# EXISTING ENDPOINTS (UNCHANGED)
+# GET STREAMABLE HTTP APP & ATTACH EXISTING ENDPOINTS
 # ============================================================================
+
+app = mcp.streamable_http_app()  # Root ASGI app with Streamable HTTP transport
+
 
 class ToolCallRequest(BaseModel):
     name: str
@@ -220,25 +182,21 @@ async def list_tools():
         ]
     }
 
+
 @app.post("/callTool")
 async def call_tool(request: ToolCallRequest):
-
     if request.name == "pests_and_diseases":
-
         result = await query_pest_disease_rag(
             request.arguments.get("pest_name"),
             request.arguments.get("crop", "General")
         )
-
         return {"result": result}
 
     elif request.name == "govt_schemes":
-
         result = await query_govt_scheme_rag(
             request.arguments.get("scheme_type"),
             request.arguments.get("state", "All India")
         )
-
         return {"result": result}
 
     raise HTTPException(404, "Unknown tool")
@@ -249,7 +207,6 @@ async def call_tool(request: ToolCallRequest):
 # ============================================================================
 
 if __name__ == "__main__":
-
     uvicorn.run(
         app,
         host="0.0.0.0",
