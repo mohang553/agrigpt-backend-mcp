@@ -7,7 +7,7 @@ Transport: Streamable HTTP only
 import os
 import httpx
 from typing import Dict, Any
-from fastapi import HTTPException
+from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 from fastmcp import FastMCP
 import uvicorn
@@ -18,12 +18,12 @@ import uvicorn
 
 PESTS_DISEASES_RAG_URL = os.getenv(
     "PESTS_DISEASES_RAG_URL",
-    "https://agrigpt-backend-rag-pest-and-disease.onrender.com"
+    "https://newapi.alumnx.com/agrigpt/rag-pest/"
 )
 
 GOVT_SCHEMES_RAG_URL = os.getenv(
     "GOVT_SCHEMES_RAG_URL",
-    "https://agrigpt-backend-rag-government-schemes-1.onrender.com"
+    "https://newapi.alumnx.com/agrigpt/rag-govt/"
 )
 
 RAG_TIMEOUT = int(os.getenv("RAG_TIMEOUT", "30"))
@@ -32,11 +32,7 @@ RAG_TIMEOUT = int(os.getenv("RAG_TIMEOUT", "30"))
 # MCP INITIALIZATION (Streamable HTTP)
 # ============================================================================
 
-mcp = FastMCP(
-    name="Agricultural Tools MCP Server",
-    description="Provides agricultural pest/disease and government scheme information",
-    stateless_http=True,  # Streamable HTTP — each request is independent
-)
+mcp = FastMCP(name="Agricultural Tools MCP Server")
 
 # ============================================================================
 # TOOL IMPLEMENTATIONS (UNCHANGED LOGIC)
@@ -111,10 +107,13 @@ async def govt_schemes(scheme_type: str, state: str = "All India") -> dict:
 
 
 # ============================================================================
-# GET STREAMABLE HTTP APP & ATTACH EXISTING ENDPOINTS
+# FASTAPI APP WITH EXISTING ENDPOINTS + MCP MOUNTED
 # ============================================================================
 
-app = mcp.streamable_http_app()  # Root ASGI app with Streamable HTTP transport
+app = FastAPI(title="Agricultural MCP Server")
+
+# Mount the MCP Streamable HTTP app at /mcp
+app.mount("/mcp", mcp.http_app(stateless_http=True))
 
 
 class ToolCallRequest(BaseModel):
