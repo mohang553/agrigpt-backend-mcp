@@ -36,6 +36,7 @@ jobs:
 
             echo "==> Installing dependencies"
             pip install -r requirements.txt --quiet
+            pip cache purge
 
             echo "==> Restarting systemd service"
             sudo systemctl restart agrigpt-mcp.service
