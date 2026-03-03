@@ -35,8 +35,9 @@ jobs:
             source venv/bin/activate
 
             echo "==> Installing dependencies"
-            pip install -r requirements.txt --quiet
             pip cache purge
+            pip install -r requirements.txt --quiet
+            
 
             echo "==> Restarting systemd service"
             sudo systemctl restart agrigpt-mcp.service
