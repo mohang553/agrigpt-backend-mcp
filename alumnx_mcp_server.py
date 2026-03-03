@@ -50,7 +50,7 @@ if missing:
 pc = Pinecone(api_key=PINECONE_API_KEY)
 index = pc.Index(PINECONE_INDEX)
 
-embed_model = SentenceTransformer("all-MiniLM-L6-v2")
+embed_model = SentenceTransformer("all-mpnet-base-v2")
 
 mcp = FastMCP(name="Alumnx Tools MCP Server")
 
