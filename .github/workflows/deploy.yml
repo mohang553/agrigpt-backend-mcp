@@ -28,6 +28,7 @@ jobs:
             cd /agrigpt/agrigpt-backend-mcp
 
             echo "==> Pulling latest code"
+            git fetch origin
             git reset --hard origin/main
 
             echo "==> Activating virtual environment"
