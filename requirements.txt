@@ -1,7 +1,8 @@
 fastmcp
 pinecone
-sentence-transformers
 python-dotenv
 uvicorn
 httpx
 fastapi
+torch --index-url https://download.pytorch.org/whl/cpu
+sentence-transformers
