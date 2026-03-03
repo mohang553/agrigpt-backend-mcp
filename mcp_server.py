@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Alumnx MCP Server
+Alumnx MCP Server which has 3 Tools
 
 """
 
